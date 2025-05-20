@@ -54,7 +54,6 @@ This output reflects:
 ## ⚙️ Technologies Used
 
 - AWS Glue Studio (Visual ETL)
-- PySpark
 - Amazon Redshift
 - AWS S3
 
