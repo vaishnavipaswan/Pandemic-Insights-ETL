@@ -1,0 +1,70 @@
+-- Top 10 countries with the highest total COVID-19 cases
+-- Excludes regional aggregates like "World", "Asia", etc.
+SELECT 
+    location AS country,
+    MAX(total_cases) AS max_total_cases
+FROM covid_db.covid_data_cleaned
+WHERE location IS NOT NULL
+  AND iso_code IS NOT NULL 
+  AND iso_code NOT LIKE 'OWID_%'  -- filter out non-country aggregates
+GROUP BY location
+ORDER BY max_total_cases DESC
+LIMIT 10;
+================================
+
+-- Top 10 countries with the highest death-to-case ratio (fatality rate)
+SELECT 
+    location AS country,
+    MAX(total_deaths) AS total_deaths,
+    MAX(total_cases) AS total_cases,
+    ROUND(MAX(total_deaths)::numeric / NULLIF(MAX(total_cases), 0), 4) AS death_case_ratio
+FROM covid_db.covid_data_cleaned
+WHERE total_deaths IS NOT NULL 
+  AND total_cases IS NOT NULL 
+  AND iso_code IS NOT NULL 
+  AND iso_code NOT LIKE 'OWID_%'
+GROUP BY location
+HAVING MAX(total_cases) > 10000  -- avoid skew from very small countries
+ORDER BY death_case_ratio DESC
+LIMIT 10;
+==================================
+-- Top 10 countries with the highest single-day spike in new cases
+SELECT 
+    location AS country,
+    MAX(new_cases) AS peak_new_cases
+FROM covid_db.covid_data_cleaned
+WHERE new_cases IS NOT NULL 
+  AND iso_code IS NOT NULL 
+  AND iso_code NOT LIKE 'OWID_%'
+GROUP BY location
+ORDER BY peak_new_cases DESC
+LIMIT 10;
+=================================
+-- Top 10 countries with the highest 7-day rolling average of new cases
+SELECT 
+    location AS country,
+    MAX(rolling_avg_7d_cases) AS peak_7d_avg_cases
+FROM (
+    SELECT 
+        location,
+        date,
+        AVG(new_cases) OVER (PARTITION BY location ORDER BY date ROWS BETWEEN 6 PRECEDING AND CURRENT ROW) AS rolling_avg_7d_cases
+    FROM covid_db.covid_data_cleaned
+    WHERE location IS NOT NULL
+      AND iso_code NOT LIKE 'OWID_%'
+) subquery
+GROUP BY location
+ORDER BY peak_7d_avg_cases DESC
+LIMIT 10;
+==================================
+-- Top 10 countries by total COVID-19 cases per 100 people
+SELECT location AS country,
+       MAX(total_cases) AS total_cases,
+       MAX(population) AS total_population,
+       ROUND(MAX(total_cases) * 100.0 / NULLIF(MAX(population), 0), 2) AS cases_per_100
+FROM covid_db.covid_data_cleaned
+WHERE location IS NOT NULL
+  AND iso_code NOT LIKE 'OWID_%'
+GROUP BY location
+ORDER BY cases_per_100 DESC
+LIMIT 10;
